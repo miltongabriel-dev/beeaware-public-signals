@@ -7,12 +7,16 @@ import { dedupe } from "../src/dedupe.js";
 import { extractLocation } from "../src/extractLocation.js";
 import { fallbackLocation } from "../src/locationFallback.js";
 import { getTTL } from "../src/ttl.js";
+import { persistExternalIncidents } from "../src/persist.js";
 
 export default async function handler(
   _req: VercelRequest,
   res: VercelResponse
 ) {
   try {
+    // 🔐 DRY RUN CONTROLADO POR ENV
+    const DRY_RUN = process.env.DRY_RUN === "true";
+
     // 1️⃣ Fetch bruto
     const raw = await fetchAllFeeds();
 
@@ -44,20 +48,30 @@ export default async function handler(
           lat: location.lat,
           lng: location.lng,
           ttlSeconds: getTTL(signal),
-          locationPrecision: precise ? "borough" : "contextual",
+          locationPrecision: precise ? "approximate" : "contextual",
         };
       })
       .filter(
         (item): item is NonNullable<typeof item> => item !== null
       );
 
-    // 6️⃣ Resposta (dry-run)
+    // 6️⃣ Persistência (ou não, se dry-run)
+    let persisted = 0;
+
+    if (!DRY_RUN && enriched.length > 0) {
+      const result = await persistExternalIncidents(enriched);
+      persisted = result.inserted;
+    }
+
+    // 7️⃣ Resposta final
     res.status(200).json({
       status: "ok",
       fetched: raw.length,
       normalized: normalized.length,
       incidentCandidates: unique.length,
       geolocated: enriched.length,
+      persisted,
+      dryRun: DRY_RUN,
       sample: enriched.slice(0, 3),
     });
   } catch (err) {

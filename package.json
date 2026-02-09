@@ -1,16 +1,13 @@
 {
   "name": "beeaware-public-signals",
-  "private": true,
   "type": "module",
-  "scripts": {
-    "build": "echo \"no build step\""
-  },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/supabase-js": "^2.95.3",
     "node-fetch": "^3.3.2",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {
-    "@vercel/node": "^3.x"
+    "@vercel/node": "^3.0.0",
+    "typescript": "^5.0.0"
   }
 }
