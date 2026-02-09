@@ -3,7 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vercel dev",
     "build": "echo 'no build step'"
   },
   "dependencies": {
