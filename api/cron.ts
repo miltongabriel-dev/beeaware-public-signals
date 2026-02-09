@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { fetchAllFeeds } from "../src/fetchRss.js";
 import { normalizeItem } from "../src/normalize.js";
+import { isIncident } from "../src/isIncident.js";
+import { dedupe } from "../src/dedupe.js";
 
 export default async function handler(
   _req: VercelRequest,
@@ -10,11 +12,15 @@ export default async function handler(
     const raw = await fetchAllFeeds();
     const normalized = raw.map(normalizeItem);
 
+    const incidentsOnly = normalized.filter(isIncident);
+    const unique = dedupe(incidentsOnly);
+
     res.status(200).json({
       status: "ok",
       fetched: raw.length,
       normalized: normalized.length,
-      sample: normalized.slice(0, 3),
+      incidentCandidates: unique.length,
+      sample: unique.slice(0, 3),
     });
   } catch (err) {
     console.error("CRON ERROR", err);
