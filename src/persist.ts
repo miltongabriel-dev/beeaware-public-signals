@@ -33,8 +33,10 @@ export async function persistExternalIncidents(enriched: any[]) {
   }));
 
   const { error } = await supabase
-    .from("incidents")
-    .insert(rows, { ignoreDuplicates: true });
+  .from("incidents")
+  .upsert(rows, {
+    onConflict: "hash_fingerprint",
+  });
 
   if (error) {
     throw error;
