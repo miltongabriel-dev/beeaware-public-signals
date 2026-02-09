@@ -1,4 +1,7 @@
 {
+  "framework": null,
+  "buildCommand": "echo 'no build'",
+  "outputDirectory": null,
   "crons": [
     {
       "path": "/api/cron",
