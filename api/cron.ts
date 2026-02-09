@@ -7,7 +7,6 @@ import { dedupe } from "../src/dedupe.js";
 import { extractLocation } from "../src/extractLocation.js";
 import { fallbackLocation } from "../src/locationFallback.js";
 import { getTTL } from "../src/ttl.js";
-import { persistExternalIncidents } from "../src/persist.js";
 
 export default async function handler(
   _req: VercelRequest,
@@ -34,13 +33,10 @@ export default async function handler(
       .map((signal) => {
         const text = `${signal.title} ${signal.description}`;
 
-        // tentativa explícita
         const precise = extractLocation(text);
-
-        // fallback contextual
         const fallback = precise ? null : fallbackLocation(text);
-
         const location = precise ?? fallback;
+
         if (!location) return null;
 
         return {
@@ -55,13 +51,27 @@ export default async function handler(
         (item): item is NonNullable<typeof item> => item !== null
       );
 
-    // 6️⃣ Persistência (ou não, se dry-run)
+    // 🧪 DRY RUN → NUNCA PERSISTE
+    if (DRY_RUN) {
+      return res.status(200).json({
+        status: "ok",
+        dryRun: true,
+        fetched: raw.length,
+        normalized: normalized.length,
+        incidentCandidates: unique.length,
+        geolocated: enriched.length,
+        sample: enriched.slice(0, 3),
+      });
+    }
+
+    // 6️⃣ Persistência REAL (só fora do dry-run)
     let persisted = 0;
 
-    if (!DRY_RUN && enriched.length > 0) {
-      const result = await persistExternalIncidents(enriched);
-      persisted = result.inserted;
-    }
+    if (enriched.length > 0) {
+  const { persistExternalIncidents } = await import("../src/persist.js");
+  const result = await persistExternalIncidents(enriched.slice(0, 1));
+  persisted = result.inserted;
+}
 
     // 7️⃣ Resposta final
     res.status(200).json({
@@ -71,14 +81,16 @@ export default async function handler(
       incidentCandidates: unique.length,
       geolocated: enriched.length,
       persisted,
-      dryRun: DRY_RUN,
-      sample: enriched.slice(0, 3),
+      dryRun: false,
     });
-  } catch (err) {
-    console.error("CRON ERROR", err);
-    res.status(500).json({
-      status: "error",
-      message: "cron execution failed",
-    });
-  }
+  } catch (err: any) {
+  console.error("CRON ERROR FULL", err);
+
+  res.status(500).json({
+    status: "error",
+    message: err?.message ?? "unknown error",
+    stack: err?.stack ?? null,
+  });
+}
+
 }
